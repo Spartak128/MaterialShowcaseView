@@ -24,6 +24,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         button.setOnClickListener(this);
         button = findViewById(R.id.btn_tooltip_example);
         button.setOnClickListener(this);
+        button = findViewById(R.id.btn_edge_to_edge_example);
+        button.setOnClickListener(this);
         button = findViewById(R.id.btn_reset_all);
         button.setOnClickListener(this);
 
@@ -49,6 +51,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             case R.id.btn_tooltip_example:
                 intent = new Intent(this, TooltipExample.class);
+                break;
+
+            case R.id.btn_edge_to_edge_example:
+                intent = new Intent(this, EdgeToEdgeExample.class);
                 break;
 
             case R.id.btn_reset_all:

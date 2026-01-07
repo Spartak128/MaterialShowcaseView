@@ -42,6 +42,14 @@
         android:layout_margin="10dp"/>
 
     <Button
+        android:id="@+id/btn_edge_to_edge_example"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:text="Edge-to-edge Example"
+        android:layout_margin="10dp"/>
+
+    <Button
         android:id="@+id/btn_reset_all"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
