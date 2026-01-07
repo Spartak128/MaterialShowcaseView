@@ -11,6 +11,7 @@ import android.graphics.Point;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Handler;
@@ -92,6 +93,9 @@ public class MaterialShowcaseView extends FrameLayout implements View.OnTouchLis
 
     private ShowcaseTooltip toolTip;
     private boolean toolTipShown;
+    private Point mResolvedTargetPoint;
+    private Rect mResolvedTargetBounds;
+    private Target mResolvedTarget;
 
     public MaterialShowcaseView(Context context) {
         super(context);
@@ -222,7 +226,9 @@ public class MaterialShowcaseView extends FrameLayout implements View.OnTouchLis
         if (mDismissOnTouch) {
             hide();
         }
-        if (mTargetTouchable && mTarget.getBounds().contains((int) event.getX(), (int) event.getY())) {
+        Rect resolvedBounds = getResolvedTargetBounds();
+        if (mTargetTouchable && resolvedBounds != null
+                && resolvedBounds.contains((int) event.getX(), (int) event.getY())) {
             if (mDismissOnTargetTouch) {
                 hide();
             }
@@ -319,19 +325,25 @@ public class MaterialShowcaseView extends FrameLayout implements View.OnTouchLis
                     contentLP.bottomMargin = mBottomMargin;
             }
 
+            resolveTarget();
+
             // apply the target position
-            Point targetPoint = mTarget.getPoint();
-            Rect targetBounds = mTarget.getBounds();
-            setPosition(targetPoint);
+            Point targetPoint = getResolvedTargetPoint();
+            Rect targetBounds = getResolvedTargetBounds();
+            if (targetPoint != null) {
+                setPosition(targetPoint);
+            }
 
             // now figure out whether to put content above or below it
             int height = getMeasuredHeight();
             int midPoint = height / 2;
-            int yPos = targetPoint.y;
+            int yPos = targetPoint != null ? targetPoint.y : 0;
 
-            int radius = Math.max(targetBounds.height(), targetBounds.width()) / 2;
+            int radius = targetBounds != null
+                    ? Math.max(targetBounds.height(), targetBounds.width()) / 2
+                    : 0;
             if (mShape != null) {
-                mShape.updateTarget(mTarget);
+                mShape.updateTarget(getResolvedTarget());
                 radius = mShape.getHeight() / 2;
             }
 
@@ -396,7 +408,9 @@ public class MaterialShowcaseView extends FrameLayout implements View.OnTouchLis
                 toolTipShown = true;
 
                 int shapeDiameter = mShape.getTotalRadius() * 2;
-                int toolTipDistance = (shapeDiameter - mTarget.getBounds().height()) / 2;
+                Rect resolvedBounds = getResolvedTargetBounds();
+                int targetHeight = resolvedBounds != null ? resolvedBounds.height() : 0;
+                int toolTipDistance = (shapeDiameter - targetHeight) / 2;
                 toolTipDistance += tooltipMargin;
 
                 toolTip.show(toolTipDistance);
@@ -1038,7 +1052,7 @@ public class MaterialShowcaseView extends FrameLayout implements View.OnTouchLis
 
     public void fadeIn() {
         setVisibility(INVISIBLE);
-        mAnimationFactory.animateInView(this, mTarget.getPoint(), mFadeDurationInMillis,
+        mAnimationFactory.animateInView(this, getResolvedTargetPoint(), mFadeDurationInMillis,
                 new IAnimationFactory.AnimationStartListener() {
                     @Override
                     public void onAnimationStart() {
@@ -1051,7 +1065,7 @@ public class MaterialShowcaseView extends FrameLayout implements View.OnTouchLis
 
     public void animateOut() {
 
-        mAnimationFactory.animateOutView(this, mTarget.getPoint(), mFadeDurationInMillis, new IAnimationFactory.AnimationEndListener() {
+        mAnimationFactory.animateOutView(this, getResolvedTargetPoint(), mFadeDurationInMillis, new IAnimationFactory.AnimationEndListener() {
             @Override
             public void onAnimationEnd() {
                 setVisibility(INVISIBLE);
@@ -1097,5 +1111,76 @@ public class MaterialShowcaseView extends FrameLayout implements View.OnTouchLis
 
     private void setRenderOverNavigationBar(boolean mRenderOverNav) {
         this.mRenderOverNav = mRenderOverNav;
+    }
+
+    private void resolveTarget() {
+        Point fallbackPoint = mTarget.getPoint();
+        Rect fallbackBounds = mTarget.getBounds();
+
+        if (mTarget instanceof ViewTarget) {
+            ViewTarget viewTarget = (ViewTarget) mTarget;
+            RectF resolvedRect = TargetUtils.computeTargetRectRelativeToOverlay(viewTarget.getView(), this);
+            if (resolvedRect != null) {
+                int left = Math.round(resolvedRect.left);
+                int top = Math.round(resolvedRect.top);
+                int right = Math.round(resolvedRect.right);
+                int bottom = Math.round(resolvedRect.bottom);
+                setResolvedTarget(
+                        new Point(Math.round(resolvedRect.centerX()), Math.round(resolvedRect.centerY())),
+                        new Rect(left, top, right, bottom)
+                );
+                return;
+            }
+        }
+
+        setResolvedTarget(fallbackPoint, fallbackBounds);
+    }
+
+    private void setResolvedTarget(Point point, Rect bounds) {
+        mResolvedTargetPoint = point;
+        mResolvedTargetBounds = bounds;
+        if (point != null && bounds != null) {
+            mResolvedTarget = new ResolvedTarget(point, bounds);
+        } else {
+            mResolvedTarget = null;
+        }
+    }
+
+    private Target getResolvedTarget() {
+        return mResolvedTarget != null ? mResolvedTarget : mTarget;
+    }
+
+    private Point getResolvedTargetPoint() {
+        if (mResolvedTargetPoint != null) {
+            return mResolvedTargetPoint;
+        }
+        return mTarget != null ? mTarget.getPoint() : null;
+    }
+
+    private Rect getResolvedTargetBounds() {
+        if (mResolvedTargetBounds != null) {
+            return mResolvedTargetBounds;
+        }
+        return mTarget != null ? mTarget.getBounds() : null;
+    }
+
+    private static class ResolvedTarget implements Target {
+        private final Point point;
+        private final Rect bounds;
+
+        private ResolvedTarget(Point point, Rect bounds) {
+            this.point = point;
+            this.bounds = bounds;
+        }
+
+        @Override
+        public Point getPoint() {
+            return point;
+        }
+
+        @Override
+        public Rect getBounds() {
+            return bounds;
+        }
     }
 }
